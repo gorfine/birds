@@ -8,22 +8,31 @@ require 'csv'
 title   "Bird Scraper"
 
 action :scrape do
-  doc = html "eng1.html"
   result = {}
+  
+  (1..26).each do |i|
+    doc = html "eng#{i}.html"
 
-  bird_links = doc.css 'h2 a'
-  bird_links.each do |link|
-    href = link['href']
-    data = bird_data href
-    resay "#{href}  "
-    result[href] = data
+    bird_links = doc.css 'h2 a'
+    bird_links.each do |link|
+      href = link['href']
+      next unless href
+      resay "#{href}  "
+      data = bird_data href
+      next unless data
+      result[href] = data
+    end
   end
 
   resay "done"
 
   save_yaml result
   save_csv result
+end
 
+action :debug do
+  data = bird_data "bc1.html"
+  lp data  
 end
 
 class String
@@ -37,21 +46,36 @@ def save_yaml(data)
 end
 
 def save_csv(data)
-  header = %w[url
+  header = %w[
+    url
+    number
     name_hebrew
     name_english
     name_latin
     image
     text_hebrew
     subspecies_distribution
-  ] + section_normalize.values
+    description
+    habitat
+    feeding
+    breeding
+    movements
+    status
+    israel
+    stamp1
+    stamp2
+    stamp3
+    stamp4
+  ]
 
   CSV.open("out.csv", "w") do |csv|
     csv << header
-    row = []
     data.values.each do |bird|
+      row = []
       header.each do |col|
-        row << bird[col]
+        cell = bird[col]
+        cell = cell.join "\n" if cell.is_a? Array
+        row << cell
       end
       csv << row
     end
@@ -60,44 +84,66 @@ end
 
 def bird_data(url)
   page = html url
-  text = page.css('tr:nth-child(5)').text.clean
-  text_data = extract_text titles, texts
+  return nil if page.to_s.include? "404 Not Found"
+  return nil if page.to_s.size < 500
+
+  text = page.css('body').text.clean
+  text_data = extract_text text
+
+  text_hebrew = page.css('tr:nth-child(3) > td').text.clean
+  matches = text_hebrew.match /(.*)\nsubspecies/im
+  text_hebrew = matches.captures.first if matches
+  stamps = page.css('h3 img').map { |a| a['src'] }.compact
+    .each_with_index.map { |x, i| ["stamp#{i + 1}", x] }.to_h
+
+  name_parts = page.css('td')[0].text.clean.split("\n")
+  number = name_parts[0].gsub(/[^\d]/, '').to_i
+  name_hebrew = name_parts[1]
 
   base_data = { 
     'url' => url,
-    'name_hebrew' => page.css('td')[0].text.clean,
+    'number' => number,
+    'name_hebrew' => name_hebrew,
     'name_english' => page.css('div.fill3').text.clean,
     'name_latin' => page.css('div.fill4').text.clean,
     'image' => page.css('img')[0]['src'],
-    'text_hebrew' => page.css('tr:nth-child(3) > td').text.clean,
-    'subspecies_distribution' => page.css('tr:nth-child(4) > td > font:nth-child(2)').text.clean  
+    'text_hebrew' => text_hebrew,
   }
 
-  base_data.merge text_data
+  base_data.merge(stamps).merge(text_data)
 end
 
 def extract_text(text)
+  lines = text.gsub("\r", "").split("\n").reject { |a| a.strip.empty? }.map(&:strip)
+  section = nil
   result = {}
-  titles.each_with_index do |title, i|
-    section = section_normalize[title.downcase.gsub('.', '')]
-    raise "Unmapped section: #{title}" unless section
-    text = texts[i]&.clean
-    result[section] = text
+  
+  lines.each do |line|
+    case line
+    when /^Subspecies and Distribution.?$/i
+      section = 'subspecies_distribution'
+    when /^descriptive notes.?$/i
+      section = 'description'
+    when /^habitat.?$/i
+      section = 'habitat'
+    when /^food and feeding.?$/i
+      section = 'feeding'
+    when /^breeding.?$/i
+      section = 'feeding'
+    when /^movements.?$/i
+      section = 'movements'
+    when /^status and conservation.?$/i
+      section = 'status'
+    when /^israel.?$/i
+      section = 'israel'
+    else
+      next unless section
+      result[section] ||= []
+      result[section] << line
+    end
   end
 
   result
-end
-
-def section_normalize
-  @section_normalize ||= {
-    "descriptive notes" => 'description',
-    "habitat" => 'habitat',
-    "food and feeding" => 'feeding',
-    "breeding" => 'breeding',
-    "movements" => 'movements',
-    "status and conservation" => 'status',
-    "israel" => 'israel'
-  }
 end
 
 def base_url
