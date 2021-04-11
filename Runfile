@@ -1,0 +1,113 @@
+require 'pretty_trace/enable-trim'
+require 'nokogiri'
+require 'webcache'
+require 'byebug'
+require 'lp'
+require 'csv'
+
+title   "Bird Scraper"
+
+action :scrape do
+  doc = html "eng1.html"
+  result = {}
+
+  bird_links = doc.css 'h2 a'
+  bird_links.each do |link|
+    href = link['href']
+    data = bird_data href
+    resay "#{href}  "
+    result[href] = data
+  end
+
+  resay "done"
+
+  save_yaml result
+  save_csv result
+
+end
+
+class String
+  def clean
+    strip.gsub("\r", "")
+  end
+end
+
+def save_yaml(data)
+  File.write 'out.yaml', data.to_yaml
+end
+
+def save_csv(data)
+  header = %w[url
+    name_hebrew
+    name_english
+    name_latin
+    image
+    text_hebrew
+    subspecies_distribution
+  ] + section_normalize.values
+
+  CSV.open("out.csv", "w") do |csv|
+    csv << header
+    row = []
+    data.values.each do |bird|
+      header.each do |col|
+        row << bird[col]
+      end
+      csv << row
+    end
+  end
+end
+
+def bird_data(url)
+  page = html url
+  text = page.css('tr:nth-child(5)').text.clean
+  text_data = extract_text titles, texts
+
+  base_data = { 
+    'url' => url,
+    'name_hebrew' => page.css('td')[0].text.clean,
+    'name_english' => page.css('div.fill3').text.clean,
+    'name_latin' => page.css('div.fill4').text.clean,
+    'image' => page.css('img')[0]['src'],
+    'text_hebrew' => page.css('tr:nth-child(3) > td').text.clean,
+    'subspecies_distribution' => page.css('tr:nth-child(4) > td > font:nth-child(2)').text.clean  
+  }
+
+  base_data.merge text_data
+end
+
+def extract_text(text)
+  result = {}
+  titles.each_with_index do |title, i|
+    section = section_normalize[title.downcase.gsub('.', '')]
+    raise "Unmapped section: #{title}" unless section
+    text = texts[i]&.clean
+    result[section] = text
+  end
+
+  result
+end
+
+def section_normalize
+  @section_normalize ||= {
+    "descriptive notes" => 'description',
+    "habitat" => 'habitat',
+    "food and feeding" => 'feeding',
+    "breeding" => 'breeding',
+    "movements" => 'movements',
+    "status and conservation" => 'status',
+    "israel" => 'israel'
+  }
+end
+
+def base_url
+  @base_url ||= "http://israelibirdsstamps.yardbirdsil.info"
+end
+
+def html(url)
+  Nokogiri::HTML cache.get("#{base_url}/#{url}").content
+end
+
+def cache
+  @cache ||= WebCache.new life: '7d'
+end
