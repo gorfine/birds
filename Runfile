@@ -129,7 +129,7 @@ def extract_text(text)
     when /^food and feeding.?$/i
       section = 'feeding'
     when /^breeding.?$/i
-      section = 'feeding'
+      section = 'breeding'
     when /^movements.?$/i
       section = 'movements'
     when /^status and conservation.?$/i
