@@ -6,7 +6,7 @@ git_source(:github) {|repo_name| "https://github.com/#{repo_name}" }
 
 gem 'pretty_trace', require: 'pretty_trace/enable-trim'
 gem 'runfile', require: false
-gem 'bobkit'
+# gem 'bobkit'
 gem 'nokogiri'
 gem 'webcache'
 gem 'byebug'
