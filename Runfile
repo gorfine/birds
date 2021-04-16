@@ -85,7 +85,7 @@ def save_csv(data)
       row = []
       header.each do |col|
         cell = bird[col]
-        cell = cell.join "\n" if cell.is_a? Array
+        cell = cell.join " " if cell.is_a? Array
         row << cell
       end
       csv << row
@@ -98,18 +98,18 @@ def bird_data(url)
   return nil if page.to_s.include? "404 Not Found"
   return nil if page.to_s.size < 500
 
-  text = page.css('body').text.clean
+  text = page.css('body').text
   text_data = extract_text text
 
   text_hebrew = page.css('tr:nth-child(3) > td').text.clean
   matches = text_hebrew.match /(.*)\nsubspecies/im
-  text_hebrew = matches.captures.first if matches
+  text_hebrew = matches.captures.first.clean if matches
   stamps = page.css('h3 img').map { |a| a['src'] }.compact
     .each_with_index.map { |x, i| ["stamp#{i + 1}", x.clean.gsub(' .', '.')] }.to_h
 
-  name_parts = page.css('td')[0].text.clean.split("\n")
+  name_parts = page.css('td')[0].text.strip.gsub("\r", "").split("\n")
   number = name_parts[0].gsub(/[^\d]/, '').to_i
-  name_hebrew = name_parts[1]
+  name_hebrew = name_parts[1]&.clean || name_parts.join(' ')
 
   base_data = { 
     'url' => url,
@@ -166,5 +166,5 @@ def html(url)
 end
 
 def cache
-  @cache ||= WebCache.new life: '7d'
+  @cache ||= WebCache.new life: '30d'
 end
