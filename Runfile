@@ -1,8 +1,5 @@
-require 'pretty_trace/enable-trim'
-require 'nokogiri'
-require 'webcache'
-require 'byebug'
-require 'lp'
+require 'bundler'
+Bundler.require :default
 require 'csv'
 
 title   "Bird Scraper"
