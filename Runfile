@@ -28,7 +28,7 @@ action :scrape do
 end
 
 action :images do
-  data = YAML.load_file 'out.yaml'
+  data = YAML.load_file 'data/out.yaml'
   image_keys = %w[image stamp1 stamp2 stamp3 stamp4]
   data.values.each do |bird|
     image_keys.each do |image_key|
@@ -53,7 +53,7 @@ class String
 end
 
 def save_yaml(data)
-  File.write 'out.yaml', data.to_yaml
+  File.write 'data/out.yaml', data.to_yaml
 end
 
 def save_csv(data)
@@ -79,7 +79,7 @@ def save_csv(data)
     stamp4
   ]
 
-  CSV.open("out.csv", "w") do |csv|
+  CSV.open("data/out.csv", "w") do |csv|
     csv << header
     data.values.each do |bird|
       row = []
