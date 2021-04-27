@@ -168,3 +168,5 @@ end
 def cache
   @cache ||= WebCache.new life: '30d'
 end
+
+require './debug.rb' if File.exist? 'debug.rb'
